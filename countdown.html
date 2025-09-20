@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Countdown Timer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            width: 90%;
+            max-width: 800px;
+        }
+
+        .title {
+            font-size: 3rem;
+            margin-bottom: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .countdown-display {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .time-unit {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 2rem 1.5rem;
+            min-width: 120px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .time-value {
+            font-size: 3rem;
+            font-weight: bold;
+            display: block;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .time-label {
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0.5rem;
+            opacity: 0.8;
+        }
+
+        .progress-container {
+            width: 100%;
+            margin-bottom: 2rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            border-radius: 10px;
+            transition: width 1s ease;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .progress-text {
+            margin-top: 1rem;
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        /* Progress indicator styles for trigger markers */
+        .progress-bar .progress-indicator {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 5;
+            transition: background 300ms ease, box-shadow 300ms ease;
+        }
+        .progress-bar .progress-indicator.upcoming {
+            background: #FFA000; /* amber for upcoming */
+            box-shadow: 0 0 6px rgba(255,160,0,0.8);
+        }
+        .progress-bar .progress-indicator.passed {
+            background: #607D8B; /* blue-gray for passed (distinct from progress green) */
+            box-shadow: 0 0 8px rgba(96,125,139,0.9);
+        }
+
+        /* old .settings (kept but hidden by default) */
+        .settings {
+            display: none; /* hidden by default, timer is primary view */
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 50;
+        }
+
+        /* When body has .config-page, show settings as the main page (not an overlay) */
+        .config-page .settings {
+            display: block;
+            position: static;
+            width: 100%;
+            max-width: 900px;
+            margin: 40px auto;
+            right: auto;
+            left: auto;
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+        }
+
+        /* Hide the timer container while configuring */
+        .config-page .container {
+            display: none;
+        }
+
+        /* Optionally make preview and editor full width when in config page */
+        .config-page .preview-panel,
+        .config-page .config-panel {
+            width: 100%;
+        }
+
+        .settings input, .settings textarea {
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+
+        .settings button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+
+        .settings button:hover {
+            background: #45a049;
+        }
+
+        .finished {
+            animation: pulse 2s infinite;
+        }
+
+        .notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            animation: slideInOut 3s ease-in-out forwards;
+        }
+
+        @keyframes slideInOut {
+            0% { 
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            20% { 
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            80% { 
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            100% { 
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Triggers list styling */
+        .triggers-panel {
+            margin-top: 1rem;
+            text-align: center;
+        }
+        .triggers-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: 800px;
+            margin: 0.5rem auto 0 auto;
+            padding: 0 10px;
+        }
+        .trigger-item {
+            background: rgba(255,255,255,0.06);
+            padding: 10px 12px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: #fff;
+            border-left: 4px solid transparent;
+        }
+        .trigger-desc { /* new: allow description to take available space */
+            flex: 1 1 auto;
+            text-align: left;
+            padding-right: 12px;
+            font-weight: 600;
+        }
+        .trigger-time { /* ensure consistent width and center alignment */
+            min-width: 130px;
+            text-align: center;
+        }
+        .trigger-actions { /* ensure action buttons are aligned */
+            display:flex;
+            gap:8px;
+            align-items:center;
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2rem;
+            }
+            
+            .time-unit {
+                min-width: 80px;
+                padding: 1rem;
+            }
+            
+            .time-value {
+                font-size: 2rem;
+            }
+            
+            .countdown-display {
+                gap: 1rem;
+            }
+        }
+
+        /* Configuration panel styles */
+        .config-panel {
+            margin-top: 1rem;
+            text-align: left;
+        }
+        .config-panel label {
+            font-weight: 500;
+            margin-top: 0.5rem;
+            display: block;
+        }
+        .config-panel input, .config-panel button {
+            width: 100%;
+            max-width: 300px;
+            margin-top: 0.5rem;
+        }
+        .config-panel button {
+            background: #007bff;
+            border: none;
+            padding: 0.7rem;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .config-panel button:hover {
+            background: #0056b3;
+        }
+
+        /* Triggers editor styles */
+        .triggers-editor {
+            margin-top: 1rem;
+        }
+        .trigger-row {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .trigger-row input {
+            flex: 1;
+        }
+        .trigger-row button {
+            background: #dc3545;
+            padding: 0.5rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .trigger-row button:hover {
+            background: #c82333;
+        }
+
+        /* Editor button classes (moved from inline styles) */
+        .btn-small {
+            border: none;
+            padding: 0.4rem 0.6rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .btn-test {
+            background: #17a2b8;
+            color: #fff;
+        }
+        .btn-test:hover {
+            background: #138496;
+        }
+        .btn-remove {
+            background: #dc3545;
+            color: #fff;
+        }
+        .btn-remove:hover {
+            background: #c82333;
+        }
+
+        /* ...existing code... */
+    </style>
+</head>
+<body>
+    <div class="settings" id="settings">
+        <div class="config-panel">
+            <h3 style="margin-bottom:6px;">Configuration</h3>
+            <div>
+                <label>Start Date:</label><br>
+                <input type="datetime-local" id="startDate">
+            </div>
+            <div>
+                <label>End Date:</label><br>
+                <input type="datetime-local" id="endDate">
+            </div>
+            <div>
+                <label>Sound Triggers</label>
+                <div id="triggersEditor" style="margin-top:6px;">
+                    <div id="triggersEditorList"></div>
+                    <button type="button" onclick="addTriggerRow()" style="margin-top:8px;">+ Add Trigger</button>
+                    <div style="margin-top:6px;font-size:12px;opacity:0.9;">Each trigger is a time-before-end (e.g. 1 minute before). Units: days / hours / minutes / seconds / ms.</div>
+                </div>
+            </div>
+        </div>
+
+        <hr style="margin:10px 0;border:0;height:1px;background:rgba(255,255,255,0.12);width:100%;">
+
+        <div class="preview-panel" id="previewPanel">
+            <h3 style="margin-bottom:6px;">Preview</h3>
+            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;">
+                <div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:8px 12px;min-width:90px;">
+                    <div style="font-size:1.1rem;font-weight:700;" id="previewDays">00</div>
+                    <div style="font-size:0.7rem;opacity:0.85;">Days</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:8px 12px;min-width:90px;">
+                    <div style="font-size:1.1rem;font-weight:700;" id="previewHours">00</div>
+                    <div style="font-size:0.7rem;opacity:0.85;">Hours</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:8px 12px;min-width:90px;">
+                    <div style="font-size:1.1rem;font-weight:700;" id="previewMinutes">00</div>
+                    <div style="font-size:0.7rem;opacity:0.85;">Minutes</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:8px 12px;min-width:90px;">
+                    <div style="font-size:1.1rem;font-weight:700;" id="previewSeconds">00</div>
+                    <div style="font-size:0.7rem;opacity:0.85;">Seconds</div>
+                </div>
+            </div>
+            <div style="width:220px;margin:0 auto;">
+                <div class="progress-bar" style="height:12px;">
+                    <div id="previewProgress" class="progress-fill" style="width:0%;height:12px;border-radius:6px;"></div>
+                </div>
+                <div id="previewText" style="text-align:center;margin-top:6px;font-size:0.9rem;opacity:0.9;">Preview not started</div>
+            </div>
+        </div>
+
+        <div style="margin-top:8px;display:flex;gap:8px;flex-direction:column;align-items:flex-start;">
+            <div style="display:flex;gap:8px;width:100%;">
+                <button onclick="saveAndStart()" id="saveBtn">Save & Start</button>
+                <button onclick="generateLink()" id="linkBtn">Generate Link</button>
+            </div>
+            <div style="margin-top:6px;font-size:12px;opacity:0.9;">After saving you will be redirected to the same page with a URL fragment containing the configuration.</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1 class="title">Countdown Timer</h1>
+        
+        <div class="countdown-display" id="countdown">
+            <div class="time-unit">
+                <span class="time-value" id="days">00</span>
+                <span class="time-label">Days</span>
+            </div>
+            <div class="time-unit">
+                <span class="time-value" id="hours">00</span>
+                <span class="time-label">Hours</span>
+            </div>
+            <div class="time-unit">
+                <span class="time-value" id="minutes">00</span>
+                <span class="time-label">Minutes</span>
+            </div>
+            <div class="time-unit">
+                <span class="time-value" id="seconds">00</span>
+                <span class="time-label">Seconds</span>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">0% Complete</div>
+        </div>
+
+        <!-- Triggers panel shown on timer side -->
+        <div class="triggers-panel" id="triggersPanel">
+            <h3 style="margin-bottom:6px;">Triggers</h3>
+            <div class="triggers-list" id="triggersList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Consolidated countdown script
+const HARDCODED_START_DATE = ""; // leave empty to use now on config page
+const HARDCODED_END_DATE = "";   // leave empty to use now+10min on config page
+
+// Default sound triggers. Note: the final "Time's up" trigger is set to 500ms (half-second)
+// because the long descending melody (the final "beeeeeeeep") starts at ~500ms. Setting
+// the trigger to 500ms aligns that long tone with the exact end moment. (The editor still
+// accepts explicit 0ms when using the 'ms' unit.)
+let SOUND_TRIGGERS = [
+    { timeLeft: 60000, soundUrl: "./sounds/one-minute.mp3", description: "1 minute warning" },
+    { timeLeft: 30000, soundUrl: "./sounds/30-seconds.mp3", description: "30 seconds warning" },
+    { timeLeft: 10000, soundUrl: "./sounds/10-seconds.mp3", description: "10 seconds warning" },
+    { timeLeft: 500, soundUrl: "end-melody", description: "Time's up!" }
+];
+
+let startDate = HARDCODED_START_DATE ? new Date(HARDCODED_START_DATE) : new Date();
+let endDate = HARDCODED_END_DATE ? new Date(HARDCODED_END_DATE) : new Date(Date.now() + 60 * 60 * 200);
+let countdownInterval = null;
+let playedSounds = new Set();
+
+// base64 unicode-safe
+function b64EncodeUnicode(str){ return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,(m,p)=>String.fromCharCode('0x'+p))); }
+function b64DecodeUnicode(str){ const binary = atob(str); const bytes = [].map.call(binary,ch=>'%'+('00'+ch.charCodeAt(0).toString(16)).slice(-2)).join(''); return decodeURIComponent(bytes); }
+
+function formatDateForInput(date){ const yr=date.getFullYear(); const mo=String(date.getMonth()+1).padStart(2,'0'); const d=String(date.getDate()).padStart(2,'0'); const h=String(date.getHours()).padStart(2,'0'); const m=String(date.getMinutes()).padStart(2,'0'); return `${yr}-${mo}-${d}T${h}:${m}`; }
+
+function msToHuman(ms){ if(ms<=0) return '00:00:00'; const days=Math.floor(ms/86400000); ms-=days*86400000; const hours=Math.floor(ms/3600000); ms-=hours*3600000; const minutes=Math.floor(ms/60000); ms-=minutes*60000; const seconds=Math.floor(ms/1000); return (days?days+'d ':'') + String(hours).padStart(2,'0')+':'+String(minutes).padStart(2,'0')+':'+String(seconds).padStart(2,'0'); }
+
+// Editor helpers
+function initTriggersEditor(){ const list=document.getElementById('triggersEditorList'); if(!list) return; list.innerHTML=''; (SOUND_TRIGGERS||[]).forEach(t=>{ const tl=Number(t.timeLeft||0); let unit='seconds'; let value=Math.floor(tl/1000); if(tl===0){ unit='ms'; value=0; } else if(tl%86400000===0){ unit='days'; value=tl/86400000; } else if(tl%3600000===0){ unit='hours'; value=tl/3600000; } else if(tl%60000===0){ unit='minutes'; value=tl/60000; } else if(tl%1000===0){ unit='seconds'; value=tl/1000; } else { unit='ms'; value=tl; } addTriggerRow({ value, unit, soundUrl:t.soundUrl, description:t.description }); }); if(!SOUND_TRIGGERS || SOUND_TRIGGERS.length===0) addTriggerRow({ value:1, unit:'seconds', description:'1 second', soundUrl:'./sounds/times-up.mp3'}); }
+
+function addTriggerRow(trigger){ const list=document.getElementById('triggersEditorList'); if(!list) return; const row=document.createElement('div'); row.className='trigger-row'; row.style.display='flex'; row.style.gap='6px'; row.style.marginTop='6px';
+    const valueIn=document.createElement('input'); valueIn.type='number'; valueIn.min='0'; valueIn.style.width='60px'; valueIn.value=(trigger && trigger.value)?trigger.value:'1';
+    const unitSel=document.createElement('select'); ['days','hours','minutes','seconds','ms'].forEach(u=>{ const o=document.createElement('option'); o.value=u; o.text=u; unitSel.appendChild(o); }); if(trigger&&trigger.unit) unitSel.value=trigger.unit;
+    const descIn=document.createElement('input'); descIn.type='text'; descIn.placeholder='description'; descIn.style.width='160px'; descIn.value=(trigger&&trigger.description)?trigger.description:'';
+    const soundIn=document.createElement('input'); soundIn.type='text'; soundIn.placeholder='sound URL (optional)'; soundIn.style.width='240px'; soundIn.value=(trigger&&trigger.soundUrl)?trigger.soundUrl:'';
+    const testBtn=document.createElement('button'); testBtn.type='button'; testBtn.textContent='Test'; testBtn.className='btn-small btn-test';
+    testBtn.onclick=()=>{ const url=soundIn.value.trim(); testBtn.disabled=true; const original=testBtn.textContent; if(url){ testBtn.textContent='Playing...'; playSound(url, descIn.value||'Test sound'); setTimeout(()=>{ testBtn.disabled=false; testBtn.textContent=original; },1500);} else { testBtn.textContent='Beep...'; createBeepSound(); setTimeout(()=>{ testBtn.disabled=false; testBtn.textContent=original; },700);} };
+    const removeBtn=document.createElement('button'); removeBtn.type='button'; removeBtn.textContent='Remove'; removeBtn.className='btn-small btn-remove'; removeBtn.onclick=()=>row.remove();
+    row.appendChild(valueIn); row.appendChild(unitSel); row.appendChild(descIn); row.appendChild(soundIn); row.appendChild(testBtn); row.appendChild(removeBtn); list.appendChild(row);
+}
+
+function collectTriggersFromEditor(){ const list=document.getElementById('triggersEditorList'); if(!list) return []; const rows=Array.from(list.children); const triggers=rows.map(r=>{ const inputs=r.querySelectorAll('input,select'); const value=Number(inputs[0].value||0); const unit=inputs[1].value; const desc=inputs[2].value||''; const soundUrl=inputs[3].value||''; let ms=0; if(unit==='days') ms=value*86400000; else if(unit==='hours') ms=value*3600000; else if(unit==='minutes') ms=value*60000; else if(unit==='seconds') ms=value*1000; else ms=value; return { timeLeft: ms, soundUrl, description: desc }; }); triggers.sort((a,b)=>b.timeLeft - a.timeLeft); return triggers; }
+
+function normalizeTriggersArray(arr){ return (arr||[]).map(t=>({ timeLeft: Number((t&&t.timeLeft)||0), soundUrl: (t&&t.soundUrl)?String(t.soundUrl):'', description: (t&&t.description)?String(t.description):'' })).sort((a,b)=>b.timeLeft - a.timeLeft); }
+
+// Timer / UI functions
+function renderTriggersList(){ const list=document.getElementById('triggersList'); if(!list) return; list.innerHTML=''; (SOUND_TRIGGERS||[]).forEach((t,i)=>{ const item=document.createElement('div'); item.className='trigger-item'; item.dataset.index=i; const desc=document.createElement('div'); desc.className='trigger-desc'; desc.textContent=t.description||`Trigger ${i}`; const timeLabel=document.createElement('div'); timeLabel.className='trigger-time'; timeLabel.textContent=''; const actions=document.createElement('div'); actions.className='trigger-actions'; // Test button
+    const testBtn=document.createElement('button'); testBtn.type='button'; testBtn.className='btn-small btn-test'; testBtn.textContent='Test'; testBtn.onclick=()=>{ testBtn.disabled=true; const original=testBtn.textContent; if(t.soundUrl && String(t.soundUrl).trim()){ testBtn.textContent='Playing...'; playSound(t.soundUrl, t.description||'Test'); setTimeout(()=>{ testBtn.disabled=false; testBtn.textContent=original; },1500); } else { testBtn.textContent='Beep...'; createBeepSound(); setTimeout(()=>{ testBtn.disabled=false; testBtn.textContent=original; },700); } };
+    actions.appendChild(testBtn);
+    // Append children
+    item.appendChild(desc); item.appendChild(timeLabel); item.appendChild(actions); list.appendChild(item); }); updateTriggerStatuses(); renderProgressIndicators(); }
+
+function updateTriggerStatuses(){ const now=Date.now(); const endTime=endDate.getTime(); (SOUND_TRIGGERS||[]).forEach((t,i)=>{ const el=document.querySelector(`#triggersList .trigger-item[data-index='${i}']`); if(!el) return; const target=endTime - (Number(t.timeLeft||0)); const timeLabel=el.querySelector('.trigger-time'); if(playedSounds.has(i) || now>=target){ el.classList.remove('trigger-upcoming'); el.classList.add('trigger-done'); timeLabel.textContent='Occurred'; } else { el.classList.remove('trigger-done'); el.classList.add('trigger-upcoming'); timeLabel.textContent='In ' + msToHuman(target - now); } }); updateIndicatorStatuses(); }
+
+function renderProgressIndicators(){
+    // target the main progress bar inside the timer container (not the preview)
+    const bar = document.querySelector('.container .progress-bar');
+    if(!bar) return;
+    bar.style.position = 'relative';
+    // remove existing indicators inside this bar only
+    Array.from(bar.querySelectorAll('.progress-indicator')).forEach(n=>n.remove());
+    const endTime = endDate.getTime();
+    const startTime = startDate.getTime();
+    const total = endTime - startTime;
+    (SOUND_TRIGGERS||[]).forEach((t,i)=>{
+        const target = endTime - (Number(t.timeLeft)||0);
+        let posPct = 0;
+        if(total>0) posPct = ((target - startTime) / total) * 100;
+        posPct = Math.max(0, Math.min(100, posPct));
+        const dot = document.createElement('div');
+        dot.className = 'progress-indicator upcoming'; // default as upcoming
+        dot.dataset.index = i;
+        dot.title = t.description + ' — ' + (t.timeLeft||0) + 'ms';
+        dot.style.left = posPct + '%';
+        dot.addEventListener('click', ()=>{
+            const el = document.querySelector(`#triggersList .trigger-item[data-index='${i}']`);
+            if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
+        });
+        bar.appendChild(dot);
+    });
+    updateIndicatorStatuses();
+}
+
+function updateIndicatorStatuses(){
+    const bar = document.querySelector('.container .progress-bar');
+    if(!bar) return;
+    const now = Date.now();
+    const endTime = endDate.getTime();
+    (SOUND_TRIGGERS||[]).forEach((t,i)=>{
+        const dot = bar.querySelector(`.progress-indicator[data-index='${i}']`);
+        if(!dot) return;
+        const target = endTime - (Number(t.timeLeft)||0);
+        if(playedSounds.has(i) || now>=target){
+            dot.classList.remove('upcoming');
+            dot.classList.add('passed');
+        } else {
+            dot.classList.remove('passed');
+            dot.classList.add('upcoming');
+        }
+    });
+}
+
+function parseHashConfig(){ const h=location.hash.slice(1); if(!h) return null; try{ const json=b64DecodeUnicode(h); return JSON.parse(json); }catch(e){ console.warn('Invalid fragment',e); return null; } }
+
+function loadConfigObject(cfg){ try{ if(cfg.start) startDate = new Date(cfg.start); if(cfg.end) endDate = new Date(cfg.end); if(Array.isArray(cfg.triggers)) SOUND_TRIGGERS = normalizeTriggersArray(cfg.triggers); const sd=document.getElementById('startDate'); const ed=document.getElementById('endDate'); if(sd) sd.value = formatDateForInput(startDate); if(ed) ed.value = formatDateForInput(endDate); initTriggersEditor(); playedSounds = new Set(); if(countdownInterval) clearInterval(countdownInterval); displayCountdown(); countdownInterval = setInterval(displayCountdown, 1000); renderTriggersList(); }catch(e){ console.warn('loadConfigObject',e); } }
+
+function saveAndStart(){ const s=document.getElementById('startDate').value; const e=document.getElementById('endDate').value; const triggers=collectTriggersFromEditor(); const norm=normalizeTriggersArray(triggers); if(!s||!e){ alert('Please set both start and end date/time.'); return; } if(new Date(e)<=new Date(s)){ alert('End date must be after start date!'); return; } const cfg={ start:s, end:e, triggers:norm }; location.hash = b64EncodeUnicode(JSON.stringify(cfg)); hideConfigUI(); loadConfigObject(cfg); }
+
+function generateLink(){ const s=document.getElementById('startDate').value; const e=document.getElementById('endDate').value; const triggers=collectTriggersFromEditor(); const cfg={ start: s || formatDateForInput(startDate), end: e || formatDateForInput(endDate), triggers: normalizeTriggersArray(triggers) }; const encoded=b64EncodeUnicode(JSON.stringify(cfg)); const url=location.origin+location.pathname+'#'+encoded; prompt('Copy this URL:', url); }
+
+function showConfigUI(){ document.body.classList.add('config-page'); const settings=document.getElementById('settings'); if(settings) settings.style.display=''; }
+function hideConfigUI(){ document.body.classList.remove('config-page'); const settings=document.getElementById('settings'); if(settings) settings.style.display='none'; }
+
+function playEndMelody(){
+    try{
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = ctx.currentTime;
+        const gain = ctx.createGain(); gain.connect(ctx.destination); gain.gain.setValueAtTime(0.0001, now);
+        const playTone = (freq, start, duration, volume=0.2)=>{
+            const o = ctx.createOscillator(); const g = ctx.createGain(); o.type='sine'; o.frequency.value = freq; o.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(volume, start); o.start(start); o.stop(start + duration);
+        };
+        // beep beep beeeeeeeep pattern
+        playTone(880, now + 0.0, 0.12, 0.18);
+        playTone(880, now + 0.22, 0.12, 0.18);
+        // long descending beep
+        for(let i=0;i<40;i++){
+            const t = now + 0.5 + (i*0.03);
+            const freq = 880 - (i*10);
+            const dur = 0.03;
+            playTone(freq, t, dur, 0.14*(1 - i/60));
+        }
+    }catch(e){ console.warn('end melody failed',e); createBeepSound(); }
+}
+
+function playSound(soundUrl, description){
+    if(!soundUrl){ createBeepSound(); return; }
+    if(soundUrl === 'end-melody'){
+        playEndMelody();
+        return;
+    }
+    try{ const audio=new Audio(soundUrl); audio.volume = 0.7; audio.play().catch(e=>{ console.warn('Audio play failed',e); createBeepSound(); }); }catch(e){ console.warn('playSound error',e); createBeepSound(); }
+}
+
+function createBeepSound(){ try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(); const g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=880; g.gain.setValueAtTime(0.2,ctx.currentTime); o.start(); o.stop(ctx.currentTime+0.35); }catch(e){ console.warn('beep failed',e); } }
+
+function displayCountdown(){ const now=Date.now(); const startT=startDate.getTime(); const endT=endDate.getTime(); const total=endT-startT; let timeLeft = endT - now; if(timeLeft>0){ const days=Math.floor(timeLeft/86400000); const hours=Math.floor((timeLeft%86400000)/3600000); const minutes=Math.floor((timeLeft%3600000)/60000); const seconds=Math.floor((timeLeft%60000)/1000); document.getElementById('days').textContent=String(days).padStart(2,'0'); document.getElementById('hours').textContent=String(hours).padStart(2,'0'); document.getElementById('minutes').textContent=String(minutes).padStart(2,'0'); document.getElementById('seconds').textContent=String(seconds).padStart(2,'0'); const elapsed = Math.max(0, now - startT); const progress = total>0? Math.max(0, Math.min(100, (elapsed/total)*100)) : 100; document.getElementById('progressFill').style.width = progress + '%'; document.getElementById('progressText').textContent = Math.round(progress) + '% Complete'; (SOUND_TRIGGERS||[]).forEach((trigger,index)=>{ const tLeft = Number(trigger.timeLeft||0); const target = endT - tLeft; if(timeLeft <= tLeft && !playedSounds.has(index)){ playedSounds.add(index); playSound(trigger.soundUrl, trigger.description); showNotification(trigger.description); } }); updateTriggerStatuses(); } else { document.getElementById('days').textContent='00'; document.getElementById('hours').textContent='00'; document.getElementById('minutes').textContent='00'; document.getElementById('seconds').textContent='00'; document.getElementById('progressFill').style.width='100%'; document.getElementById('progressText').textContent = '100% Complete - Time\'s Up!'; const finalIdx = (SOUND_TRIGGERS||[]).findIndex(t=>Number(t.timeLeft||0)===0 || Number(t.timeLeft||0)===1); if(finalIdx!==-1 && !playedSounds.has(finalIdx)){ playedSounds.add(finalIdx); playSound(SOUND_TRIGGERS[finalIdx].soundUrl, SOUND_TRIGGERS[finalIdx].description); showNotification(SOUND_TRIGGERS[finalIdx].description); } document.querySelector('.container')?.classList.add('finished'); updateTriggerStatuses(); } }
+
+function showNotification(msg){ const existing=document.querySelector('.notification'); if(existing) existing.remove(); const n=document.createElement('div'); n.className='notification'; n.textContent=msg; document.body.appendChild(n); setTimeout(()=>{ n.remove(); },3000); }
+
+// DOM ready
+document.addEventListener('DOMContentLoaded', ()=>{ initTriggersEditor(); const cfg = parseHashConfig(); if(cfg){ hideConfigUI(); loadConfigObject(cfg); } else { const now=new Date(); const ten=new Date(now.getTime()+10*60*1000); document.getElementById('startDate').value = formatDateForInput(now); document.getElementById('endDate').value = formatDateForInput(ten); startDate = new Date(now); endDate = new Date(ten); showConfigUI(); }
+    if(!document.body.classList.contains('config-page')){ if(countdownInterval) clearInterval(countdownInterval); displayCountdown(); countdownInterval = setInterval(displayCountdown,1000); }
+    const settings=document.getElementById('settings'); if(settings){ settings.addEventListener('input', ()=>{ const s=document.getElementById('startDate').value; const e=document.getElementById('endDate').value; if(s) startDate=new Date(s); if(e) endDate=new Date(e); const now=Date.now(); const startT=startDate.getTime(); const endT=endDate.getTime(); const displayLeft = Math.max(0, endT - now); const d=Math.floor(displayLeft/86400000); const h=Math.floor((displayLeft%86400000)/3600000); const m=Math.floor((displayLeft%3600000)/60000); const s2=Math.floor((displayLeft%60000)/1000); document.getElementById('previewDays').textContent=String(d).padStart(2,'0'); document.getElementById('previewHours').textContent=String(h).padStart(2,'0'); document.getElementById('previewMinutes').textContent=String(m).padStart(2,'0'); document.getElementById('previewSeconds').textContent=String(s2).padStart(2,'0'); const pbar=document.getElementById('previewProgress'); if(pbar){ let prog=0; if(endT>startT){ if(Date.now()<startT) prog=0; else if(Date.now()>endT) prog=100; else prog = Math.max(0, Math.min(100, ((Date.now()-startT)/(endT-startT))*100)); } pbar.style.width = prog + '%'; document.getElementById('previewText').textContent = Math.round(prog) + '% — Preview'; } }); }
+    document.getElementById('triggersPanel').style.display='block'; });
+    </script>
+</body>
+</html>
